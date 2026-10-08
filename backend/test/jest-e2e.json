@@ -1,0 +1,21 @@
+{
+  "watchman": false,
+  "moduleFileExtensions": [
+    "js",
+    "json",
+    "ts"
+  ],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "testRegex": ".e2e-spec.ts$",
+  "transform": {
+    "^.+\\.ts$": "ts-jest"
+  },
+  "moduleNameMapper": {
+    "^@/(.*)$": "<rootDir>/../src/$1"
+  },
+  "setupFiles": [
+    "<rootDir>/setup-e2e.ts"
+  ],
+  "testTimeout": 20000
+}

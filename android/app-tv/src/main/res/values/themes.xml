@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Window theme only; all UI is Compose for TV (VideoBridgeTvTheme). -->
+    <style name="Theme.VideoBridge.Tv" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/tv_background</item>
+    </style>
+</resources>

@@ -1,0 +1,31 @@
+# Baseline detekt config: the defaults, minus rules that fight idiomatic Compose.
+naming:
+  # A Compose file is named after its main composable, not after a helper enum beside it.
+  MatchingDeclarationName:
+    active: false
+  FunctionNaming:
+    ignoreAnnotated: ["Composable"]
+  TopLevelPropertyNaming:
+    constantPattern: "[A-Z][A-Za-z0-9_]*"
+style:
+  MagicNumber:
+    active: false
+  MaxLineLength:
+    maxLineLength: 140
+  ReturnCount:
+    max: 3
+    excludeGuardClauses: true
+  UnusedPrivateMember:
+    ignoreAnnotated: ["Preview"]
+complexity:
+  # A screen's view model has one small function per user action.
+  TooManyFunctions:
+    thresholdInClasses: 25
+    thresholdInFiles: 25
+  CyclomaticComplexMethod:
+    ignoreAnnotated: ["Composable"]
+  LongParameterList:
+    ignoreAnnotated: ["Composable"]
+    constructorThreshold: 10
+  LongMethod:
+    ignoreAnnotated: ["Composable"]
