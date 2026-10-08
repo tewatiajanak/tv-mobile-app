@@ -3,6 +3,8 @@
 ARG NODE_VERSION=22
 
 FROM node:${NODE_VERSION}-alpine AS deps
+# Prisma's query engine links against OpenSSL, which the Alpine image does not ship.
+RUN apk add --no-cache openssl
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -15,6 +17,7 @@ RUN DATABASE_URL=mongodb://localhost:27017/build npx prisma generate \
  && npm prune --omit=dev
 
 FROM node:${NODE_VERSION}-alpine AS runtime
+RUN apk add --no-cache openssl
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
