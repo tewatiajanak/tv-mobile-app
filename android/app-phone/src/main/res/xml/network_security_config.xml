@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Staging and production: HTTPS only. The dev flavor overrides this file. -->
+<!--
+  Our own backend is always HTTPS. Plain http is allowed for everything else on purpose:
+  the videos people save are often plain-http links (home NAS, small file servers), and
+  the player and downloader fetch them straight from their source.
+-->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="false" />
+    <base-config cleartextTrafficPermitted="true" />
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">onrender.com</domain>
+    </domain-config>
 </network-security-config>

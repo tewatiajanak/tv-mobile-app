@@ -20,6 +20,8 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
             }
         // Emulators reach the host at 10.0.2.2; a real phone/TV needs -PVB_DEV_HOST=<LAN IP>.
         val devHost = providers.gradleProperty("VB_DEV_HOST").orElse("10.0.2.2").get()
+        // The hosted backend. Override with -PVB_PROD_HOST=<host> when it moves.
+        val prodHost = providers.gradleProperty("VB_PROD_HOST").orElse("tv-mobile-app.onrender.com").get()
 
         extensions.configure<ApplicationExtension> {
             compileSdk = libs.intVersion("compileSdk")
@@ -54,8 +56,8 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                 }
                 create("prod") {
                     dimension = ENV_DIMENSION
-                    buildConfigField("String", "API_BASE_URL", "\"https://api.example.com/\"")
-                    buildConfigField("String", "WS_URL", "\"wss://api.example.com/ws\"")
+                    buildConfigField("String", "API_BASE_URL", "\"https://$prodHost/\"")
+                    buildConfigField("String", "WS_URL", "\"wss://$prodHost/ws\"")
                 }
             }
 

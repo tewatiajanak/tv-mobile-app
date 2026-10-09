@@ -110,8 +110,16 @@ row closes it and returns to the field. Reuse it for every TV text field (search
   reformats multi-line constructs, so multi-line string patches silently miss.
 - Still not built: realtime (the TV polls every 4 s), offline library, link inspection, preview
   pictures, the real download engine (Phase 6), and Phases 7–18.
-- `dist/Dekho-phone.apk` and `dist/Dekho-tv.apk` are debug builds tied to this Mac's LAN address.
-  **A standalone APK needs the backend hosted online first** (not done).
+- **The backend is hosted** (2026-10-09): `https://tv-mobile-app.onrender.com`, Render free plan
+  (sleeps after 15 idle minutes), Docker build from `backend/`, auto-deploys on every push to
+  `main` of `github.com/tewatiajanak/tv-mobile-app` (private). It uses the same Atlas database
+  as development (`videobridge`). Its environment values are in `dist/render-env.txt` (git-ignored).
+- The `prod` Android flavor points at that host (`-PVB_PROD_HOST=` overrides it).
+  `dist/Dekho-phone.apk` / `dist/Dekho-tv.apk` are `prodDebug` builds: they work on any network,
+  but are debug-signed (not for the Play Store) and install as a separate app from the `.dev` one.
+  **They have not been installed or run on a device yet.**
+- In `prod`, plain-http is allowed for everything except our own backend, because saved video
+  links are often http. Revisit in the security phase.
 - The owner wants the app finished as fast as possible: prefer the shortest path to the MVP
   (save link on phone → appears on TV → play → download) and defer polish, saying what was deferred.
 - Test devices: OnePlus CPH2619 (Android 16, USB adb) and Xiaomi MiTV-AXSO2 (Android 9, network
