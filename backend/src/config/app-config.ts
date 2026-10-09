@@ -25,6 +25,8 @@ export interface AppConfig {
     defaultPhoneRegion: string;
   };
   pairing: { secret: string; ttlSeconds: number };
+  /** `password` undefined means the admin page is switched off. */
+  admin: { password?: string; tokenTtlSeconds: number };
   /** Git SHA when the build provides one, otherwise the package version. */
   version: string;
   /** True only for the OpenAPI export: no database or Redis connection is opened. */
@@ -83,6 +85,7 @@ export function loadConfig(raw: Record<string, string | undefined> = process.env
       defaultPhoneRegion: env.DEFAULT_PHONE_REGION,
     },
     pairing: { secret: env.PAIRING_SECRET, ttlSeconds: env.PAIRING_TTL_SECONDS },
+    admin: { password: env.ADMIN_PASSWORD, tokenTtlSeconds: 30 * 60 },
     version: resolveVersion(raw),
     docsOnly: raw.VB_DOCS_ONLY === '1',
   };

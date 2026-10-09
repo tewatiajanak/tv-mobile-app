@@ -112,12 +112,18 @@ row closes it and returns to the field. Reuse it for every TV text field (search
   pictures, the real download engine (Phase 6), and Phases 7–18.
 - **The backend is hosted** (2026-10-09): `https://tv-mobile-app.onrender.com`, Render free plan
   (sleeps after 15 idle minutes), Docker build from `backend/`, auto-deploys on every push to
-  `main` of `github.com/tewatiajanak/tv-mobile-app` (private). It uses the same Atlas database
+  `main` of `github.com/tewatiajanak/tv-mobile-app` (**public** — never commit secrets). It uses the same Atlas database
   as development (`videobridge`). Its environment values are in `dist/render-env.txt` (git-ignored).
 - The `prod` Android flavor points at that host (`-PVB_PROD_HOST=` overrides it).
   `dist/Dekho-phone.apk` / `dist/Dekho-tv.apk` are `prodDebug` builds: they work on any network,
   but are debug-signed (not for the Play Store) and install as a separate app from the `.dev` one.
   **They have not been installed or run on a device yet.**
+  They are also published as GitHub release `v0.1.0` (direct download links).
+- **Admin users page** (owner's request, ahead of Phase 13): `/admin` on the backend lists users
+  with name and full mobile number, with search. It is protected by `ADMIN_PASSWORD` (its own
+  password, not a user account, because user passwords may be one character); unset means the
+  page and `/api/v1/admin/*` answer 404. Code: `backend/src/modules/admin`. This is the only
+  place a full phone number leaves the API.
 - In `prod`, plain-http is allowed for everything except our own backend, because saved video
   links are often http. Revisit in the security phase.
 - The owner wants the app finished as fast as possible: prefer the shortest path to the MVP
@@ -127,5 +133,4 @@ row closes it and returns to the field. Reuse it for every TV text field (search
   presses to the TV or phone over adb without checking the screen first** — the owner uses them
   while work is in progress (a stray OK once signed the TV out).
 - Known issues carried forward: the Atlas password was shared in chat and should be rotated;
-  unverified numbers and weak passwords are an accepted risk (ADR-0008); work is uncommitted
-  (owner will handle git later).
+  unverified numbers and weak passwords are an accepted risk (ADR-0008).

@@ -1,3 +1,4 @@
+import { RequestMethod } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, OpenAPIObject, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
@@ -27,7 +28,8 @@ export function buildOpenApiDocument(
 /** Everything main.ts, the e2e tests and the OpenAPI export must configure identically. */
 export function configureApp(app: NestExpressApplication, config: AppConfig): void {
   app.useLogger(app.get(Logger));
-  app.setGlobalPrefix(GLOBAL_PREFIX);
+  // The admin page is a web page people type the address of, so it lives outside the API prefix.
+  app.setGlobalPrefix(GLOBAL_PREFIX, { exclude: [{ path: 'admin', method: RequestMethod.GET }] });
   app.set('trust proxy', config.trustProxy);
   app.disable('x-powered-by');
 

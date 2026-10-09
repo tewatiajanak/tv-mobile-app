@@ -78,6 +78,12 @@ export const envSchema = z.object({
     .string({ error: 'PAIRING_SECRET is required' })
     .min(32, { error: 'PAIRING_SECRET must be at least 32 characters' }),
   PAIRING_TTL_SECONDS: positiveInt('PAIRING_TTL_SECONDS').default(300),
+  // --- Admin page ---
+  // Optional: without it the admin page and its API do not exist (404).
+  ADMIN_PASSWORD: z
+    .string()
+    .min(12, { error: 'ADMIN_PASSWORD must be at least 12 characters' })
+    .optional(),
   DEFAULT_PHONE_REGION: z
     .string()
     .regex(/^[A-Z]{2}$/, { error: 'DEFAULT_PHONE_REGION must be a 2-letter country code' })

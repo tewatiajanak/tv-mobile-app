@@ -9,6 +9,7 @@ import { LoggerModule } from './infra/logger/logger.module';
 import { PrismaModule } from './infra/prisma/prisma.module';
 import { RedisModule } from './infra/redis/redis.module';
 import { RateLimitModule } from './common/rate-limit/rate-limit.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { EntitlementsModule } from './modules/entitlements/entitlements.module';
 import { HealthModule } from './modules/health/health.module';
@@ -31,6 +32,7 @@ import { TestSupportModule } from './modules/test-support/test-support.module';
     UsersModule,
     PairingModule,
     VideosModule,
+    AdminModule,
     ...(process.env.NODE_ENV === 'test' ? [TestSupportModule] : []),
   ],
   providers: [
