@@ -25,6 +25,7 @@ import com.videobridge.core.data.downloads.DownloadStatus
 import com.videobridge.core.data.downloads.StorageOption
 import com.videobridge.core.data.downloads.VideoApp
 import com.videobridge.core.datastore.AppSettings
+import com.videobridge.core.datastore.DownloaderChoice
 import com.videobridge.core.datastore.PlayerChoice
 import com.videobridge.core.model.Video
 import com.videobridge.core.tvdesignsystem.TV_KEYBOARD_TAG
@@ -419,8 +420,10 @@ class TvAuthScreenTest {
                         settings = settings,
                         storage = storage,
                         apps = listOf(VideoApp("org.videolan.vlc", "VLC")),
+                        downloadApps = listOf(VideoApp("com.esaba.downloader", "Downloader")),
                         phoneMasked = "+91******3210",
                         onPlayer = { choice, app -> events += listOfNotNull(choice.name, app).joinToString("|") },
+                        onDownloader = { choice, app -> events += listOfNotNull("downloader", choice.name, app).joinToString("|") },
                         onDownloadMode = { events += it.name },
                         onStorage = { events += it.id },
                         onSignOut = { events += "signout" },
@@ -460,6 +463,18 @@ class TvAuthScreenTest {
         press(Key.DirectionCenter)
 
         assertEquals(listOf("OTHER_APP|org.videolan.vlc"), events)
+    }
+
+    @Test
+    fun `with another downloader chosen, the apps that can take a link are listed and one can be picked`() {
+        val events = mutableListOf<String>()
+        showSettings(AppSettings(downloader = DownloaderChoice.OTHER_APP), events)
+
+        composeRule.onNodeWithTag(tvSettingTag("downloader_DEKHO")).assertTextContains("○")
+        composeRule.onNodeWithTag(tvSettingTag("downloader_ask")).assertTextContains("●")
+        composeRule.onNodeWithTag(tvSettingTag("downloader_app_com.esaba.downloader")).performSemanticsAction(SemanticsActions.OnClick)
+
+        assertEquals(listOf("downloader|OTHER_APP|com.esaba.downloader"), events)
     }
 
     @Test

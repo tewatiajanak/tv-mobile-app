@@ -11,6 +11,7 @@ import com.videobridge.core.data.videos.VideosRepository
 import com.videobridge.core.datastore.AppSettings
 import com.videobridge.core.datastore.DeviceSettings
 import com.videobridge.core.datastore.DownloadMode
+import com.videobridge.core.datastore.DownloaderChoice
 import com.videobridge.core.datastore.PlayerChoice
 import com.videobridge.core.model.Video
 import com.videobridge.core.testing.MainDispatcherRule
@@ -125,6 +126,9 @@ class LibraryViewModelTest {
         override suspend fun setPlayer(value: PlayerChoice, packageName: String?) =
             settings.update { it.copy(player = value, playerPackage = packageName) }
 
+        override suspend fun setDownloader(value: DownloaderChoice, packageName: String?) =
+            settings.update { it.copy(downloader = value, downloaderPackage = packageName) }
+
         override suspend fun setDownloadMode(value: DownloadMode) = settings.update { it.copy(downloadMode = value) }
 
         override suspend fun setStorageId(value: String) = settings.update { it.copy(storageId = value) }
@@ -135,7 +139,13 @@ class LibraryViewModelTest {
     // Built on first use, after MainDispatcherRule has replaced Dispatchers.Main: the view model
     // starts collecting settings in its constructor.
     private val viewModel by lazy {
-        LibraryViewModel(repository, downloads, FakeSettings()) { listOf(VideoApp("org.videolan.vlc", "VLC")) }
+        LibraryViewModel(
+            repository,
+            downloads,
+            FakeSettings(),
+            { listOf(VideoApp("org.videolan.vlc", "VLC")) },
+            { listOf(VideoApp("com.dv.adm", "ADM")) },
+        )
     }
 
     @Test
@@ -258,6 +268,29 @@ class LibraryViewModelTest {
         assertEquals(DownloadStart.STORAGE_NOT_CONNECTED, viewModel.downloadMessage.value)
         viewModel.downloadMessageShown()
         assertNull(viewModel.downloadMessage.value)
+    }
+
+    @Test
+    fun `with another downloader chosen, a download is handed to that app instead of started here`() {
+        viewModel.refresh()
+        val video = viewModel.uiState.value.videos.single()
+        assertEquals("ADM", viewModel.downloadApps().single().label)
+
+        viewModel.setDownloader(DownloaderChoice.OTHER_APP, "com.dv.adm")
+        viewModel.setDownloadMode(DownloadMode.ALWAYS)
+        viewModel.download(video)
+
+        assertEquals(ExternalDownload(video.sourceUrl, "com.dv.adm"), viewModel.externalDownload.value)
+        assertEquals(emptyList<String>(), downloads.started)
+        // Opening a video must not jump to the other app every time.
+        assertEquals(false, viewModel.settings.value.downloadsWhenOpened)
+        viewModel.externalDownloadShown()
+        assertNull(viewModel.externalDownload.value)
+
+        viewModel.setDownloader(DownloaderChoice.DEKHO)
+        viewModel.download(video)
+        assertEquals(listOf("v1"), downloads.started)
+        assertEquals(true, viewModel.settings.value.downloadsWhenOpened)
     }
 
     @Test

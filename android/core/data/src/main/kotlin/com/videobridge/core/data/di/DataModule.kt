@@ -11,8 +11,10 @@ import com.videobridge.core.data.devices.DefaultDevicesRepository
 import com.videobridge.core.data.devices.DefaultPairingRepository
 import com.videobridge.core.data.devices.DevicesRepository
 import com.videobridge.core.data.devices.PairingRepository
+import com.videobridge.core.data.downloads.DownloadApps
 import com.videobridge.core.data.downloads.Downloads
 import com.videobridge.core.data.downloads.DownloadsManager
+import com.videobridge.core.data.downloads.InstalledDownloadApps
 import com.videobridge.core.data.downloads.InstalledVideoApps
 import com.videobridge.core.data.downloads.VideoApps
 import com.videobridge.core.data.videos.DefaultVideosRepository
@@ -52,4 +54,7 @@ interface DataModule {
 
     @Binds
     fun bindInstalledVideoApps(impl: VideoApps): InstalledVideoApps
+
+    @Binds
+    fun bindInstalledDownloadApps(impl: DownloadApps): InstalledDownloadApps
 }

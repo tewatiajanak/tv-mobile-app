@@ -7,6 +7,7 @@ import com.videobridge.core.common.AppResult
 import com.videobridge.core.data.downloads.DownloadStart
 import com.videobridge.core.data.downloads.DownloadStatus
 import com.videobridge.core.data.downloads.Downloads
+import com.videobridge.core.data.downloads.InstalledDownloadApps
 import com.videobridge.core.data.downloads.InstalledVideoApps
 import com.videobridge.core.data.downloads.StorageOption
 import com.videobridge.core.data.downloads.VideoApp
@@ -14,6 +15,7 @@ import com.videobridge.core.data.videos.VideosRepository
 import com.videobridge.core.datastore.AppSettings
 import com.videobridge.core.datastore.DeviceSettings
 import com.videobridge.core.datastore.DownloadMode
+import com.videobridge.core.datastore.DownloaderChoice
 import com.videobridge.core.datastore.PlayerChoice
 import com.videobridge.core.model.Video
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -38,6 +40,9 @@ sealed interface LibraryError {
 
     data class Message(val text: String) : LibraryError
 }
+
+/** A download for another app to do: the link, and the chosen app (null lets the device ask). */
+data class ExternalDownload(val url: String, val packageName: String?)
 
 data class LibraryUiState(
     /** True only until the first answer arrives; refreshes after that are silent. */
@@ -72,6 +77,7 @@ constructor(
     private val downloadsManager: Downloads,
     private val settingsStore: DeviceSettings,
     private val installedVideoApps: InstalledVideoApps,
+    private val installedDownloadApps: InstalledDownloadApps,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LibraryUiState())
     val uiState: StateFlow<LibraryUiState> = _uiState.asStateFlow()
@@ -88,6 +94,11 @@ constructor(
     /** The outcome of the last "download" request, for the screen to announce once. */
     val downloadMessage: StateFlow<DownloadStart?> = _downloadMessage.asStateFlow()
 
+    private val _externalDownload = MutableStateFlow<ExternalDownload?>(null)
+
+    /** A download the screen must hand to another app, once. */
+    val externalDownload: StateFlow<ExternalDownload?> = _externalDownload.asStateFlow()
+
     fun storageOptions(): List<StorageOption> = downloadsManager.storageOptions()
 
     /** Other video apps on this device, for the "play with" setting. */
@@ -96,6 +107,14 @@ constructor(
     /** [packageName] names the other app to use; null with OTHER_APP lets the device ask. */
     fun setPlayer(value: PlayerChoice, packageName: String? = null) {
         viewModelScope.launch { settingsStore.setPlayer(value, packageName) }
+    }
+
+    /** Apps on this device that can be handed a link, for the "download with" setting. */
+    fun downloadApps(): List<VideoApp> = installedDownloadApps.installed()
+
+    /** [packageName] names the other app to use; null with OTHER_APP lets the device ask. */
+    fun setDownloader(value: DownloaderChoice, packageName: String? = null) {
+        viewModelScope.launch { settingsStore.setDownloader(value, packageName) }
     }
 
     fun setDownloadMode(value: DownloadMode) {
@@ -107,6 +126,11 @@ constructor(
     }
 
     fun download(video: Video) {
+        val chosen = settings.value
+        if (chosen.downloader == DownloaderChoice.OTHER_APP) {
+            _externalDownload.value = ExternalDownload(video.sourceUrl, chosen.downloaderPackage)
+            return
+        }
         viewModelScope.launch { _downloadMessage.value = downloadsManager.start(video) }
     }
 
@@ -120,6 +144,10 @@ constructor(
 
     fun removeDownload(video: Video) {
         viewModelScope.launch { downloadsManager.remove(video.id) }
+    }
+
+    fun externalDownloadShown() {
+        _externalDownload.value = null
     }
 
     fun downloadMessageShown() {

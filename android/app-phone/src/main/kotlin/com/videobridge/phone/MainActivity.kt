@@ -109,6 +109,15 @@ class MainActivity : ComponentActivity() {
         val downloads by libraryViewModel.downloads.collectAsStateWithLifecycle()
         val downloadMessage by libraryViewModel.downloadMessage.collectAsStateWithLifecycle()
 
+        val externalDownload by libraryViewModel.externalDownload.collectAsStateWithLifecycle()
+
+        LaunchedEffect(externalDownload) {
+            externalDownload?.let {
+                downloadInAnotherApp(it.url, it.packageName)
+                libraryViewModel.externalDownloadShown()
+            }
+        }
+
         LaunchedEffect(downloadMessage) {
             downloadMessage?.let {
                 Toast.makeText(this@MainActivity, downloadMessageRes(it), Toast.LENGTH_LONG).show()
@@ -133,7 +142,7 @@ class MainActivity : ComponentActivity() {
                 settings.downloadMode == DownloadMode.ASK && !alreadyHandled -> asking = video
 
                 else -> {
-                    if (settings.downloadMode == DownloadMode.ALWAYS && !alreadyHandled) libraryViewModel.download(video)
+                    if (settings.downloadsWhenOpened && !alreadyHandled) libraryViewModel.download(video)
                     play(video)
                 }
             }
@@ -190,7 +199,9 @@ class MainActivity : ComponentActivity() {
                     settings = settings,
                     storage = remember { libraryViewModel.storageOptions() },
                     apps = remember { libraryViewModel.videoApps() },
+                    downloadApps = remember { libraryViewModel.downloadApps() },
                     onPlayer = libraryViewModel::setPlayer,
+                    onDownloader = libraryViewModel::setDownloader,
                     onDownloadMode = libraryViewModel::setDownloadMode,
                     onStorage = libraryViewModel::setStorage,
                     onClose = { screen = Screen.HOME },
@@ -280,5 +291,23 @@ class MainActivity : ComponentActivity() {
                 Toast.makeText(this, R.string.library_no_player, Toast.LENGTH_LONG).show()
             }
         }
+    }
+
+    /**
+     * "Another app" as the downloader: hand the link to the app chosen in Settings, or let the
+     * device ask when none was chosen (or the chosen one has since been uninstalled).
+     */
+    private fun downloadInAnotherApp(url: String, packageName: String?) {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE)
+        val opened =
+            listOf(Intent(intent).setPackage(packageName), intent).any {
+                try {
+                    startActivity(it)
+                    true
+                } catch (_: ActivityNotFoundException) {
+                    false
+                }
+            }
+        Toast.makeText(this, if (opened) R.string.download_handed_over else R.string.download_no_app, Toast.LENGTH_LONG).show()
     }
 }

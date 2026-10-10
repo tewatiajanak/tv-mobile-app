@@ -281,7 +281,9 @@ class AuthScreenTest {
                     settings = AppSettings(),
                     storage = storage,
                     apps = listOf(VideoApp("org.videolan.vlc", "VLC")),
+                    downloadApps = listOf(VideoApp("com.dv.adm", "ADM")),
                     onPlayer = { choice, app -> chosen += listOfNotNull(choice.name, app).joinToString("|") },
+                    onDownloader = { choice, app -> chosen += listOfNotNull("downloader", choice.name, app).joinToString("|") },
                     onDownloadMode = { chosen += it.name },
                     onStorage = { chosen += it.id },
                     onClose = {},
@@ -294,10 +296,12 @@ class AuthScreenTest {
         composeRule.onNodeWithText("Not connected").assertExists()
 
         composeRule.onNodeWithTag(settingTag("OTHER_APP")).performClick()
+        composeRule.onNodeWithTag(settingTag("downloader_DEKHO")).performScrollTo().assertIsSelected()
+        composeRule.onNodeWithTag(settingTag("downloader_OTHER_APP")).performScrollTo().performClick()
         composeRule.onNodeWithTag(settingTag("ASK")).performScrollTo().performClick()
         // A drive that is not plugged in cannot be chosen.
         composeRule.onNodeWithTag(settingTag("storage_1")).performScrollTo().assertIsNotEnabled()
 
-        assertEquals(listOf("OTHER_APP", "ASK"), chosen)
+        assertEquals(listOf("OTHER_APP", "downloader|OTHER_APP", "ASK"), chosen)
     }
 }

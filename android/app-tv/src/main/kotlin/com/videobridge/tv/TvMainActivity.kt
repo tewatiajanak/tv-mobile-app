@@ -104,6 +104,15 @@ class TvMainActivity : ComponentActivity() {
         var playing by remember { mutableStateOf<Pair<Video, String>?>(null) }
         var showSettings by rememberSaveable { mutableStateOf(false) }
 
+        val externalDownload by libraryViewModel.externalDownload.collectAsStateWithLifecycle()
+
+        LaunchedEffect(externalDownload) {
+            externalDownload?.let {
+                downloadInAnotherApp(it.url, it.packageName)
+                libraryViewModel.externalDownloadShown()
+            }
+        }
+
         LaunchedEffect(downloadMessage) {
             downloadMessage?.let {
                 Toast.makeText(this@TvMainActivity, downloadMessageRes(it), Toast.LENGTH_LONG).show()
@@ -113,7 +122,7 @@ class TvMainActivity : ComponentActivity() {
 
         fun play(video: Video) {
             val status = downloads[video.id] ?: DownloadStatus.None
-            if (settings.downloadMode == DownloadMode.ALWAYS && status is DownloadStatus.None) libraryViewModel.download(video)
+            if (settings.downloadsWhenOpened && status is DownloadStatus.None) libraryViewModel.download(video)
             // A finished download plays from the drive, with no network needed.
             val downloaded = (status as? DownloadStatus.Done)?.uri
             // A downloaded file always plays in Dekho: other apps cannot read this app's folder.
@@ -142,7 +151,9 @@ class TvMainActivity : ComponentActivity() {
                     storage = remember { libraryViewModel.storageOptions() },
                     phoneMasked = state.phoneMasked,
                     apps = remember { libraryViewModel.videoApps() },
+                    downloadApps = remember { libraryViewModel.downloadApps() },
                     onPlayer = libraryViewModel::setPlayer,
+                    onDownloader = libraryViewModel::setDownloader,
                     onDownloadMode = libraryViewModel::setDownloadMode,
                     onStorage = libraryViewModel::setStorage,
                     onSignOut = sessionViewModel::signOut,
@@ -193,5 +204,23 @@ class TvMainActivity : ComponentActivity() {
                 Toast.makeText(this, R.string.library_no_player, Toast.LENGTH_LONG).show()
             }
         }
+    }
+
+    /**
+     * "Another app" as the downloader: hand the link to the app chosen in Settings, or let the
+     * device ask when none was chosen (or the chosen one has since been uninstalled).
+     */
+    private fun downloadInAnotherApp(url: String, packageName: String?) {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE)
+        val opened =
+            listOf(Intent(intent).setPackage(packageName), intent).any {
+                try {
+                    startActivity(it)
+                    true
+                } catch (_: ActivityNotFoundException) {
+                    false
+                }
+            }
+        Toast.makeText(this, if (opened) R.string.download_handed_over else R.string.download_no_app, Toast.LENGTH_LONG).show()
     }
 }

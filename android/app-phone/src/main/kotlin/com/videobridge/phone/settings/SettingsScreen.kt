@@ -26,6 +26,7 @@ import com.videobridge.core.data.downloads.StorageOption
 import com.videobridge.core.data.downloads.VideoApp
 import com.videobridge.core.datastore.AppSettings
 import com.videobridge.core.datastore.DownloadMode
+import com.videobridge.core.datastore.DownloaderChoice
 import com.videobridge.core.datastore.PlayerChoice
 import com.videobridge.core.model.formatBytes
 import com.videobridge.phone.R
@@ -40,7 +41,9 @@ fun SettingsScreen(
     settings: AppSettings,
     storage: List<StorageOption>,
     apps: List<VideoApp>,
+    downloadApps: List<VideoApp>,
     onPlayer: (PlayerChoice, String?) -> Unit,
+    onDownloader: (DownloaderChoice, String?) -> Unit,
     onDownloadMode: (DownloadMode) -> Unit,
     onStorage: (StorageOption) -> Unit,
     onClose: () -> Unit,
@@ -84,6 +87,41 @@ fun SettingsScreen(
                 if (apps.isEmpty()) {
                     Text(
                         text = stringResource(R.string.settings_player_no_apps),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 24.dp),
+                    )
+                }
+            }
+
+            Section(stringResource(R.string.settings_downloader))
+            Choice(
+                "downloader_DEKHO",
+                stringResource(R.string.settings_downloader_dekho),
+                stringResource(R.string.settings_downloader_dekho_hint),
+                settings.downloader == DownloaderChoice.DEKHO,
+            ) { onDownloader(DownloaderChoice.DEKHO, null) }
+            Choice(
+                "downloader_OTHER_APP",
+                stringResource(R.string.settings_downloader_other),
+                stringResource(R.string.settings_downloader_other_hint),
+                settings.downloader == DownloaderChoice.OTHER_APP,
+            ) { onDownloader(DownloaderChoice.OTHER_APP, settings.downloaderPackage) }
+
+            if (settings.downloader == DownloaderChoice.OTHER_APP) {
+                // Which other app: one installed on this phone, or let the phone ask each time.
+                Section(stringResource(R.string.settings_downloader_choose_app))
+                Choice("downloader_ask", stringResource(R.string.settings_player_ask), null, settings.downloaderPackage == null) {
+                    onDownloader(DownloaderChoice.OTHER_APP, null)
+                }
+                downloadApps.forEach { app ->
+                    Choice("downloader_app_${app.packageName}", app.label, null, settings.downloaderPackage == app.packageName) {
+                        onDownloader(DownloaderChoice.OTHER_APP, app.packageName)
+                    }
+                }
+                if (downloadApps.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.settings_downloader_no_apps),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 24.dp),

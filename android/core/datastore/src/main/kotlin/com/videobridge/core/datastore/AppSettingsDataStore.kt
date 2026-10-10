@@ -22,6 +22,15 @@ enum class PlayerChoice {
     OTHER_APP,
 }
 
+/** Which app downloads a video. */
+enum class DownloaderChoice {
+    /** Dekho's own downloader: shows progress, can stop and resume, plays the file offline. */
+    DEKHO,
+
+    /** Another app installed on the device is handed the link; Dekho does not track that download. */
+    OTHER_APP,
+}
+
 /** What opening a video does about downloading. */
 enum class DownloadMode {
     /** Just play. Downloading is a separate, explicit action on the card. */
@@ -41,7 +50,14 @@ data class AppSettings(
     val downloadMode: DownloadMode = DownloadMode.MANUAL,
     /** Id of the chosen storage (see StorageOption); null means "use internal storage". */
     val storageId: String? = null,
-)
+    val downloader: DownloaderChoice = DownloaderChoice.DEKHO,
+    /** With [DownloaderChoice.OTHER_APP]: the chosen app's package, or null to let the device ask. */
+    val downloaderPackage: String? = null,
+) {
+    /** Opening a video also downloads it. Only Dekho's downloader does this without leaving the app. */
+    val downloadsWhenOpened: Boolean
+        get() = downloadMode == DownloadMode.ALWAYS && downloader == DownloaderChoice.DEKHO
+}
 
 enum class DownloadState { RUNNING, PAUSED, FAILED, DONE }
 
@@ -61,6 +77,8 @@ interface DeviceSettings {
     val settings: Flow<AppSettings>
 
     suspend fun setPlayer(value: PlayerChoice, packageName: String? = null)
+
+    suspend fun setDownloader(value: DownloaderChoice, packageName: String? = null)
 
     suspend fun setDownloadMode(value: DownloadMode)
 
@@ -97,6 +115,8 @@ constructor(private val dataStore: DataStore<Preferences>) :
                 playerPackage = prefs[PLAYER_PACKAGE]?.takeIf { it.isNotEmpty() },
                 downloadMode = prefs[DOWNLOAD_MODE].toEnum(DownloadMode.MANUAL),
                 storageId = prefs[STORAGE_ID],
+                downloader = prefs[DOWNLOADER].toEnum(DownloaderChoice.DEKHO),
+                downloaderPackage = prefs[DOWNLOADER_PACKAGE]?.takeIf { it.isNotEmpty() },
             )
         }
 
@@ -104,6 +124,13 @@ constructor(private val dataStore: DataStore<Preferences>) :
         dataStore.edit {
             it[PLAYER] = value.name
             it[PLAYER_PACKAGE] = packageName.orEmpty()
+        }
+    }
+
+    override suspend fun setDownloader(value: DownloaderChoice, packageName: String?) {
+        dataStore.edit {
+            it[DOWNLOADER] = value.name
+            it[DOWNLOADER_PACKAGE] = packageName.orEmpty()
         }
     }
 
@@ -146,6 +173,8 @@ constructor(private val dataStore: DataStore<Preferences>) :
         val PLAYER = stringPreferencesKey("player")
         val PLAYER_PACKAGE = stringPreferencesKey("player_package")
         val DOWNLOAD_MODE = stringPreferencesKey("download_mode")
+        val DOWNLOADER = stringPreferencesKey("downloader")
+        val DOWNLOADER_PACKAGE = stringPreferencesKey("downloader_package")
         val STORAGE_ID = stringPreferencesKey("storage_id")
         val DOWNLOADS = stringPreferencesKey("download_records")
     }

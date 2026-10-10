@@ -54,6 +54,15 @@
     <string name="settings_player_dekho_hint">Remembers where you stopped.</string>
     <string name="settings_player_other">Another video app</string>
     <string name="settings_player_other_hint">Opens the video app this device offers.</string>
+    <string name="settings_downloader">Download videos with</string>
+    <string name="settings_downloader_dekho">Dekho downloader</string>
+    <string name="settings_downloader_dekho_hint">Shows progress, can stop and resume, plays without internet.</string>
+    <string name="settings_downloader_other">Another app</string>
+    <string name="settings_downloader_other_hint">Hands the link to a downloader or browser on this device. Dekho can\'t show its progress.</string>
+    <string name="settings_downloader_choose_app">Which app</string>
+    <string name="settings_downloader_no_apps">No other app on this device can open a link. Install a downloader app first.</string>
+    <string name="download_handed_over">Link sent to the other app</string>
+    <string name="download_no_app">No app on this device can download this link. Choose Dekho downloader in Settings.</string>
     <string name="settings_download">When I open a video</string>
     <string name="settings_download_manual">Just play it</string>
     <string name="settings_download_manual_hint">Download only when I choose Download.</string>

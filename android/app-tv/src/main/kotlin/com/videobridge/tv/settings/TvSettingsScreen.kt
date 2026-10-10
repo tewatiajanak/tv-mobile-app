@@ -48,6 +48,7 @@ import com.videobridge.core.data.downloads.StorageOption
 import com.videobridge.core.data.downloads.VideoApp
 import com.videobridge.core.datastore.AppSettings
 import com.videobridge.core.datastore.DownloadMode
+import com.videobridge.core.datastore.DownloaderChoice
 import com.videobridge.core.datastore.PlayerChoice
 import com.videobridge.core.model.formatBytes
 import com.videobridge.tv.R
@@ -78,8 +79,10 @@ fun TvSettingsScreen(
     settings: AppSettings,
     storage: List<StorageOption>,
     apps: List<VideoApp>,
+    downloadApps: List<VideoApp>,
     phoneMasked: String,
     onPlayer: (PlayerChoice, String?) -> Unit,
+    onDownloader: (DownloaderChoice, String?) -> Unit,
     onDownloadMode: (DownloadMode) -> Unit,
     onStorage: (StorageOption) -> Unit,
     onSignOut: () -> Unit,
@@ -151,6 +154,35 @@ fun TvSettingsScreen(
                         })
                     }
                     if (apps.isEmpty()) Note(stringResource(R.string.settings_player_no_apps))
+                }
+
+                Section(stringResource(R.string.settings_downloader))
+                Item(
+                    id = "downloader_DEKHO",
+                    title = stringResource(R.string.settings_downloader_dekho),
+                    detail = stringResource(R.string.settings_downloader_dekho_hint),
+                    selected = settings.downloader == DownloaderChoice.DEKHO,
+                    onClick = { onDownloader(DownloaderChoice.DEKHO, null) },
+                )
+                Item(
+                    id = "downloader_OTHER_APP",
+                    title = stringResource(R.string.settings_downloader_other),
+                    detail = stringResource(R.string.settings_downloader_other_hint),
+                    selected = settings.downloader == DownloaderChoice.OTHER_APP,
+                    onClick = { onDownloader(DownloaderChoice.OTHER_APP, settings.downloaderPackage) },
+                )
+                if (settings.downloader == DownloaderChoice.OTHER_APP) {
+                    // Which other app: one installed on this TV, or let the TV ask each time.
+                    Section(stringResource(R.string.settings_downloader_choose_app))
+                    Item("downloader_ask", stringResource(R.string.settings_player_ask), null, settings.downloaderPackage == null, {
+                        onDownloader(DownloaderChoice.OTHER_APP, null)
+                    })
+                    downloadApps.forEach { app ->
+                        Item("downloader_app_${app.packageName}", app.label, null, settings.downloaderPackage == app.packageName, {
+                            onDownloader(DownloaderChoice.OTHER_APP, app.packageName)
+                        })
+                    }
+                    if (downloadApps.isEmpty()) Note(stringResource(R.string.settings_downloader_no_apps))
                 }
 
                 Section(stringResource(R.string.settings_download))
