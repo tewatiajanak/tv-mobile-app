@@ -52,7 +52,8 @@ class AuthScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    private var state by mutableStateOf(AuthUiState())
+    // Most of these tests exercise the longer create-account form; the app itself opens on sign-in.
+    private var state by mutableStateOf(AuthUiState(mode = AuthMode.CREATE_ACCOUNT))
     private var submits = 0
 
     private fun show(sessionEnded: Boolean = false) {

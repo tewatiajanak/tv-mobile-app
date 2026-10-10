@@ -49,6 +49,7 @@ class AuthViewModelTest {
 
     @Test
     fun `creating an account needs name, number and password - all three`() {
+        viewModel.onModeChange(AuthMode.CREATE_ACCOUNT)
         assertFalse(viewModel.uiState.value.canSubmit)
         fill(name = "")
         assertFalse(viewModel.uiState.value.canSubmit)
@@ -65,6 +66,7 @@ class AuthViewModelTest {
 
     @Test
     fun `a one-character password is accepted`() {
+        viewModel.onModeChange(AuthMode.CREATE_ACCOUNT)
         fill(password = "1")
 
         viewModel.submit()
@@ -73,8 +75,8 @@ class AuthViewModelTest {
     }
 
     @Test
-    fun `signing in needs only number and password`() {
-        viewModel.onModeChange(AuthMode.SIGN_IN)
+    fun `the screen opens on sign-in, which needs only number and password`() {
+        assertEquals(AuthMode.SIGN_IN, viewModel.uiState.value.mode)
         fill(name = "")
 
         assertTrue(viewModel.uiState.value.canSubmit)

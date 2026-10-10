@@ -29,7 +29,6 @@ import com.videobridge.core.datastore.PlayerChoice
 import com.videobridge.core.model.Video
 import com.videobridge.core.player.PlayerFactory
 import com.videobridge.core.tvdesignsystem.VideoBridgeTvTheme
-import com.videobridge.feature.auth.AuthMode
 import com.videobridge.feature.auth.AuthViewModel
 import com.videobridge.feature.auth.SessionViewModel
 import com.videobridge.feature.auth.TvPairingViewModel
@@ -54,8 +53,6 @@ class TvMainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // On a TV most people already have an account (made on the phone), so start on sign-in.
-        if (savedInstanceState == null) authViewModel.onModeChange(AuthMode.SIGN_IN)
         setContent {
             VideoBridgeTvTheme {
                 Surface(modifier = Modifier.fillMaxSize(), shape = RectangleShape) {

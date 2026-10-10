@@ -33,7 +33,7 @@ sealed interface AuthError {
 }
 
 data class AuthUiState(
-    val mode: AuthMode = AuthMode.CREATE_ACCOUNT,
+    val mode: AuthMode = AuthMode.SIGN_IN,
     val name: String = "",
     val phone: String = "",
     val password: String = "",
