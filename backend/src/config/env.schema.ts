@@ -82,7 +82,7 @@ export const envSchema = z.object({
   // Optional: without it the admin page and its API do not exist (404).
   ADMIN_PASSWORD: z
     .string()
-    .min(12, { error: 'ADMIN_PASSWORD must be at least 12 characters' })
+    .min(8, { error: 'ADMIN_PASSWORD must be at least 8 characters' })
     .optional(),
   DEFAULT_PHONE_REGION: z
     .string()
