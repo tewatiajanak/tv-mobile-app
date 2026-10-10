@@ -17,6 +17,9 @@ button:disabled { opacity:.6; cursor:default; }
 .login h2 { margin:0 0 6px; font-size:19px; }
 .login p { margin:0 0 16px; color:var(--muted); font-size:14px; }
 .login form { display:grid; gap:12px; }
+.field { position:relative; }
+.field input { padding-right:76px; }
+.field button { position:absolute; right:6px; top:50%; transform:translateY(-50%); background:transparent; color:var(--muted); padding:6px 10px; font-size:14px; font-weight:500; }
 .error { color:#ff7b72; font-size:14px; min-height:20px; }
 .bar { display:flex; gap:12px; align-items:center; margin-bottom:12px; }
 .count { color:var(--muted); font-size:14px; white-space:nowrap; }
@@ -61,7 +64,13 @@ const SCRIPT = `
     $('login').classList.toggle('hidden', signedIn);
     $('users').classList.toggle('hidden', !signedIn);
     $('signout').classList.toggle('hidden', !signedIn);
-    if (!signedIn) { $('password').value = ''; $('password').focus(); }
+    if (!signedIn) { $('password').value = ''; reveal(false); $('password').focus(); }
+  }
+
+  function reveal(visible) {
+    $('password').type = visible ? 'text' : 'password';
+    $('peek').textContent = visible ? 'Hide' : 'Show';
+    $('peek').setAttribute('aria-pressed', visible ? 'true' : 'false');
   }
 
   function when(iso) {
@@ -134,7 +143,7 @@ const SCRIPT = `
     fetch(API + '/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: $('password').value })
+      body: JSON.stringify({ password: $('password').value.trim() })
     })
       .then(function (res) { return res.json().then(function (body) { return { ok: res.ok, body: body }; }); })
       .then(function (result) {
@@ -149,6 +158,11 @@ const SCRIPT = `
       })
       .catch(function () { $('loginError').textContent = 'Could not reach the server. Try again.'; })
       .then(function () { button.disabled = false; });
+  });
+
+  $('peek').addEventListener('click', function () {
+    reveal($('password').type === 'password');
+    $('password').focus();
   });
 
   var timer;
@@ -190,7 +204,10 @@ export function renderAdminPage(nonce: string): string {
     <h2>Sign in</h2>
     <p>Enter the admin password to see the users.</p>
     <form id="loginForm">
-      <input id="password" type="password" autocomplete="current-password" placeholder="Admin password" required>
+      <div class="field">
+        <input id="password" type="password" autocomplete="current-password" placeholder="Admin password" required>
+        <button id="peek" type="button" aria-pressed="false">Show</button>
+      </div>
       <button id="loginButton" type="submit">Sign in</button>
       <div id="loginError" class="error" role="alert"></div>
     </form>
