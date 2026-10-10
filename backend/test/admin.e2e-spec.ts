@@ -1,11 +1,22 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { loadConfig } from '../src/config/app-config';
+import { AdminMailer } from '../src/modules/admin/admin.mailer';
 import { ADMIN_LIMITS } from '../src/modules/admin/admin.service';
+import { PrismaService } from '../src/infra/prisma/prisma.service';
 import { createTestApp } from './helpers/app';
 import { resetDatabase } from './helpers/db';
 
+const PHONE = '9000000001';
 const PASSWORD = 'e2e-admin-password';
+const ADMIN = {
+  phone: '+919000000001',
+  password: PASSWORD,
+  email: 'owner@example.com',
+  resendApiKey: 're_test_key',
+  emailFrom: 'Dekho <onboarding@resend.dev>',
+  tokenTtlSeconds: 1800,
+};
 const device = {
   installId: '0192aaaa-0000-7000-8000-000000000001',
   type: 'PHONE',
@@ -23,17 +34,27 @@ describe('Admin users page (e2e)', () => {
         .send({ name, phone, password: '1', device })
         .expect(201)
     ).body.accessToken as string;
-  const adminToken = async () =>
-    (await http().post('/api/v1/admin/login').send({ password: PASSWORD }).expect(200)).body
-      .token as string;
+  const login = (password: string, phone = PHONE) =>
+    http().post('/api/v1/admin/login').send({ phone, password });
+  const adminToken = async (password = PASSWORD) =>
+    (await login(password).expect(200)).body.token as string;
+  /** Asks for a reset code and returns the one that would have been emailed. */
+  const emailedCode = async (phone = PHONE) => {
+    const send = jest.spyOn(app.get(AdminMailer), 'send').mockResolvedValue(true);
+    await http().post('/api/v1/admin/forgot').send({ phone }).expect(204);
+    const text = send.mock.calls[0]?.[1];
+    send.mockRestore();
+    return text ? /\b(\d{6})\b/.exec(text)?.[1] : undefined;
+  };
   const users = (token: string, query = '') =>
     http().get(`/api/v1/admin/users${query}`).set('Authorization', `Bearer ${token}`);
 
   beforeAll(async () => {
-    app = await createTestApp({ admin: { password: PASSWORD, tokenTtlSeconds: 1800 } });
+    app = await createTestApp({ admin: ADMIN });
   });
   beforeEach(async () => {
     await resetDatabase(app);
+    await app.get(PrismaService).adminCredential.deleteMany();
   });
   afterAll(async () => {
     await app.close();
@@ -84,7 +105,7 @@ describe('Admin users page (e2e)', () => {
   });
 
   it('rejects a wrong password and locks the address after repeated failures', async () => {
-    const wrong = () => http().post('/api/v1/admin/login').send({ password: 'wrong-password' });
+    const wrong = () => login('wrong-password');
 
     const first = await wrong().expect(401);
     expect(first.body.error).toMatchObject({ code: 'INVALID_CREDENTIALS' });
@@ -93,7 +114,88 @@ describe('Admin users page (e2e)', () => {
     }
     await wrong().expect(429);
     // Even the right password waits out the lock.
-    await http().post('/api/v1/admin/login').send({ password: PASSWORD }).expect(429);
+    await login(PASSWORD).expect(429);
+  });
+
+  it('signs in only with the admin number, and says the same for a wrong number or password', async () => {
+    await register('Meera', '9876543211');
+
+    const otherNumber = await login(PASSWORD, '9876543211').expect(401);
+    const wrongPassword = await login('wrong-password').expect(401);
+    expect(otherNumber.body.error.message).toBe(wrongPassword.body.error.message);
+    // A user's own app password does not open the admin page either.
+    await login('1', '9876543211').expect(401);
+    await login(PASSWORD, '+91 90000 00001').expect(200);
+  });
+
+  it('changes the password, after which the first password and older tokens stop working', async () => {
+    const old = await adminToken();
+    const change = (token: string, currentPassword: string, newPassword: string) =>
+      http()
+        .post('/api/v1/admin/password')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ currentPassword, newPassword });
+
+    await http().post('/api/v1/admin/password').send({}).expect(401);
+    await change(old, 'not-the-password', 'new-password-1').expect(401);
+    await change(old, PASSWORD, 'short').expect(400);
+    const fresh = (await change(old, PASSWORD, 'new-password-1').expect(200)).body.token as string;
+
+    await users(old).expect(401);
+    await users(fresh).expect(200);
+    await login(PASSWORD).expect(401);
+    await users(await adminToken('new-password-1')).expect(200);
+    const stored = await app.get(PrismaService).adminCredential.findMany();
+    expect(JSON.stringify(stored)).not.toContain('new-password-1');
+  });
+
+  it('resets the password with an emailed code, once', async () => {
+    const old = await adminToken();
+    const code = await emailedCode();
+    expect(code).toMatch(/^\d{6}$/);
+    const reset = (attempt: string | undefined, phone = PHONE) =>
+      http()
+        .post('/api/v1/admin/reset')
+        .send({ phone, code: attempt, newPassword: 'after-reset-1' });
+    const wrong = code === '000000' ? '000001' : '000000';
+
+    await reset(wrong).expect(401);
+    await reset(code, '9876543211').expect(401);
+    // The first password still works until the reset completes.
+    await login(PASSWORD).expect(200);
+    const res = await reset(code).expect(200);
+
+    await users(res.body.token as string).expect(200);
+    await users(old).expect(401);
+    await login(PASSWORD).expect(401);
+    await login('after-reset-1').expect(200);
+    await reset(code).expect(401);
+  });
+
+  it('emails no code for any other number, and answers the same', async () => {
+    await register('Meera', '9876543211');
+    expect(await emailedCode('9876543211')).toBeUndefined();
+    expect(await app.get(PrismaService).adminCredential.count()).toBe(0);
+  });
+
+  it('expires a code after ten minutes and gives up after too many wrong tries', async () => {
+    const reset = (attempt: string | undefined) =>
+      http()
+        .post('/api/v1/admin/reset')
+        .send({ phone: PHONE, code: attempt, newPassword: 'after-reset-1' });
+
+    const expired = await emailedCode();
+    await app.get(PrismaService).adminCredential.updateMany({
+      data: { otpExpiresAt: new Date(Date.now() - 1000) },
+    });
+    await reset(expired).expect(401);
+
+    const code = await emailedCode();
+    const wrong = code === '000000' ? '000001' : '000000';
+    for (let i = 0; i < ADMIN_LIMITS.otpAttempts; i += 1) {
+      await reset(wrong).expect(401);
+    }
+    await reset(code).expect(401);
   });
 
   it('serves the page with a script policy that only allows its own nonce', async () => {
@@ -113,7 +215,7 @@ describe('Admin switched off (e2e)', () => {
   let app: NestExpressApplication;
 
   beforeAll(async () => {
-    app = await createTestApp({ admin: { ...loadConfig().admin, password: undefined } });
+    app = await createTestApp({ admin: { ...loadConfig().admin, phone: undefined } });
   });
   afterAll(async () => {
     await app.close();
@@ -122,7 +224,11 @@ describe('Admin switched off (e2e)', () => {
   it('does not exist when no admin password is configured', async () => {
     const http = request(app.getHttpServer());
     await http.get('/admin').expect(404);
-    await http.post('/api/v1/admin/login').send({ password: 'anything-at-all' }).expect(404);
+    await http
+      .post('/api/v1/admin/login')
+      .send({ phone: '9000000001', password: 'anything-at-all' })
+      .expect(404);
+    await http.post('/api/v1/admin/forgot').send({ phone: '9000000001' }).expect(404);
     await http.get('/api/v1/admin/users').expect(404);
   });
 });

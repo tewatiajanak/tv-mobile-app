@@ -17,6 +17,9 @@ button:disabled { opacity:.6; cursor:default; }
 .login h2 { margin:0 0 6px; font-size:19px; }
 .login p { margin:0 0 16px; color:var(--muted); font-size:14px; }
 .login form { display:grid; gap:12px; }
+.login .link { justify-self:start; background:transparent; color:var(--muted); padding:0; font-size:14px; font-weight:500; text-decoration:underline; }
+.note { color:var(--muted); font-size:14px; min-height:20px; }
+.actions { display:flex; gap:8px; }
 .field { position:relative; }
 .field input { padding-right:76px; }
 .field button { position:absolute; right:6px; top:50%; transform:translateY(-50%); background:transparent; color:var(--muted); padding:6px 10px; font-size:14px; font-weight:500; }
@@ -60,17 +63,77 @@ const SCRIPT = `
   }
   var memory = token();
 
-  function show(signedIn) {
-    $('login').classList.toggle('hidden', signedIn);
-    $('users').classList.toggle('hidden', !signedIn);
-    $('signout').classList.toggle('hidden', !signedIn);
-    if (!signedIn) { $('password').value = ''; reveal(false); $('password').focus(); }
+  var PASSWORDS = ['password', 'newPassword', 'currentPassword', 'changedPassword'];
+  var MIN_PASSWORD = 8;
+
+  // view: 'login', 'forgot' (signed out) or 'users', 'change' (signed in).
+  function show(view) {
+    var signedIn = view === 'users' || view === 'change';
+    ['login', 'forgot', 'users', 'change'].forEach(function (id) {
+      $(id).classList.toggle('hidden', id !== view);
+    });
+    $('account').classList.toggle('hidden', !signedIn);
+    PASSWORDS.forEach(function (id) { $(id).value = ''; reveal(id, false); });
+    $('code').value = '';
+    ['loginError', 'forgotError', 'changeError', 'forgotNote'].forEach(function (id) { $(id).textContent = ''; });
+    if (view === 'login') { $('phone').focus(); }
+    if (view === 'forgot') { step(false); $('forgotPhone').value = $('phone').value; $('forgotPhone').focus(); }
+    if (view === 'change') { $('currentPassword').focus(); }
   }
 
-  function reveal(visible) {
-    $('password').type = visible ? 'text' : 'password';
-    $('peek').textContent = visible ? 'Hide' : 'Show';
-    $('peek').setAttribute('aria-pressed', visible ? 'true' : 'false');
+  function reveal(id, visible) {
+    var button = document.querySelector('[data-peek="' + id + '"]');
+    $(id).type = visible ? 'text' : 'password';
+    button.textContent = visible ? 'Hide' : 'Show';
+    button.setAttribute('aria-pressed', visible ? 'true' : 'false');
+  }
+
+  // The forgot card has two steps: ask for the code, then type it with the new password.
+  function step(codeSent) {
+    $('forgotForm').classList.toggle('hidden', codeSent);
+    $('resetForm').classList.toggle('hidden', !codeSent);
+  }
+
+  function post(path, body, auth) {
+    var headers = { 'Content-Type': 'application/json' };
+    if (auth) headers.Authorization = 'Bearer ' + memory;
+    return fetch(API + path, { method: 'POST', headers: headers, body: JSON.stringify(body) })
+      .then(function (res) {
+        if (res.status === 204) return { ok: true, status: 204, body: {} };
+        return res.json().then(function (data) { return { ok: res.ok, status: res.status, body: data }; });
+      });
+  }
+
+  function message(result, fallback) {
+    return (result.body.error && result.body.error.message) || fallback;
+  }
+
+  // Runs one form submission: disables its button, shows the failure in its error line.
+  function submit(formId, errorId, run) {
+    $(formId).addEventListener('submit', function (event) {
+      event.preventDefault();
+      var button = $(formId).querySelector('button[type="submit"]');
+      button.disabled = true;
+      $(errorId).textContent = '';
+      Promise.resolve()
+        .then(run)
+        .then(function (problem) { if (problem) $(errorId).textContent = problem; })
+        .catch(function () { $(errorId).textContent = 'Could not reach the server. Try again.'; })
+        .then(function () { button.disabled = false; });
+    });
+  }
+
+  function tooShort(id) {
+    return $(id).value.trim().length < MIN_PASSWORD
+      ? 'The new password needs at least ' + MIN_PASSWORD + ' characters.'
+      : '';
+  }
+
+  function enter(result) {
+    setToken(result.body.token);
+    show('users');
+    state.page = 1;
+    return load(false);
   }
 
   function when(iso) {
@@ -122,7 +185,7 @@ const SCRIPT = `
     $('listError').textContent = '';
     return fetch(url, { headers: { Authorization: 'Bearer ' + memory } })
       .then(function (res) {
-        if (res.status === 401) { setToken(null); show(false); $('loginError').textContent = 'Please sign in again.'; return null; }
+        if (res.status === 401) { setToken(null); show('login'); $('loginError').textContent = 'Please sign in again.'; return null; }
         if (!res.ok) throw new Error('failed');
         return res.json();
       })
@@ -135,35 +198,67 @@ const SCRIPT = `
       .catch(function () { $('listError').textContent = 'Could not load users. Check your connection and try again.'; });
   }
 
-  $('loginForm').addEventListener('submit', function (event) {
-    event.preventDefault();
-    var button = $('loginButton');
-    button.disabled = true;
-    $('loginError').textContent = '';
-    fetch(API + '/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: $('password').value.trim() })
-    })
-      .then(function (res) { return res.json().then(function (body) { return { ok: res.ok, body: body }; }); })
+  submit('loginForm', 'loginError', function () {
+    return post('/login', { phone: $('phone').value.trim(), password: $('password').value.trim() })
       .then(function (result) {
-        if (!result.ok) {
-          $('loginError').textContent = (result.body.error && result.body.error.message) || 'Could not sign in.';
-          return;
-        }
-        setToken(result.body.token);
-        show(true);
-        state.page = 1;
-        return load(false);
-      })
-      .catch(function () { $('loginError').textContent = 'Could not reach the server. Try again.'; })
-      .then(function () { button.disabled = false; });
+        if (!result.ok) return message(result, 'Could not sign in.');
+        return enter(result);
+      });
   });
 
-  $('peek').addEventListener('click', function () {
-    reveal($('password').type === 'password');
-    $('password').focus();
+  submit('forgotForm', 'forgotError', function () {
+    return post('/forgot', { phone: $('forgotPhone').value.trim() }).then(function (result) {
+      if (!result.ok) return message(result, 'Could not send the code.');
+      step(true);
+      $('forgotNote').textContent = 'If that is the admin number, a 6-digit code is on its way to the admin email. It is valid for 10 minutes.';
+      $('code').focus();
+    });
   });
+
+  submit('resetForm', 'forgotError', function () {
+    var problem = tooShort('newPassword');
+    if (problem) return problem;
+    return post('/reset', {
+      phone: $('forgotPhone').value.trim(),
+      code: $('code').value.trim(),
+      newPassword: $('newPassword').value.trim()
+    }).then(function (result) {
+      if (!result.ok) return message(result, 'Could not set the new password.');
+      return enter(result);
+    });
+  });
+
+  submit('changeForm', 'changeError', function () {
+    var problem = tooShort('changedPassword');
+    if (problem) return problem;
+    return post('/password', {
+      currentPassword: $('currentPassword').value.trim(),
+      newPassword: $('changedPassword').value.trim()
+    }, true).then(function (result) {
+      if (result.status === 401 && result.body.error && result.body.error.code === 'UNAUTHENTICATED') {
+        setToken(null); show('login'); $('loginError').textContent = 'Please sign in again.'; return;
+      }
+      if (!result.ok) return message(result, 'Could not change the password.');
+      setToken(result.body.token);
+      show('users');
+      $('listError').textContent = '';
+      return load(false);
+    });
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('[data-peek]'), function (button) {
+    button.addEventListener('click', function () {
+      var id = button.getAttribute('data-peek');
+      reveal(id, $(id).type === 'password');
+      $(id).focus();
+    });
+  });
+
+  $('forgotLink').addEventListener('click', function () { show('forgot'); });
+  $('backToLogin').addEventListener('click', function () { show('login'); });
+  $('backToLogin2').addEventListener('click', function () { show('login'); });
+  $('changeLink').addEventListener('click', function () { show('change'); });
+  $('cancelChange').addEventListener('click', function () { show('users'); });
 
   var timer;
   $('search').addEventListener('input', function () {
@@ -176,9 +271,9 @@ const SCRIPT = `
   });
 
   $('moreButton').addEventListener('click', function () { state.page += 1; load(true); });
-  $('signout').addEventListener('click', function () { setToken(null); show(false); });
+  $('signout').addEventListener('click', function () { setToken(null); show('login'); });
 
-  if (memory) { show(true); load(false); } else { show(false); }
+  if (memory) { show('users'); load(false); } else { show('login'); }
 })();
 `;
 
@@ -197,19 +292,63 @@ export function renderAdminPage(nonce: string): string {
 <div class="wrap">
   <header>
     <h1><span>Dekho</span> Admin</h1>
-    <button id="signout" class="quiet hidden" type="button">Sign out</button>
+    <div id="account" class="actions hidden">
+      <button id="changeLink" class="quiet" type="button">Change password</button>
+      <button id="signout" class="quiet" type="button">Sign out</button>
+    </div>
   </header>
 
   <section id="login" class="login hidden">
     <h2>Sign in</h2>
-    <p>Enter the admin password to see the users.</p>
+    <p>Enter the admin mobile number and password.</p>
     <form id="loginForm">
+      <input id="phone" type="tel" inputmode="tel" autocomplete="username" placeholder="Mobile number" required>
       <div class="field">
-        <input id="password" type="password" autocomplete="current-password" placeholder="Admin password" required>
-        <button id="peek" type="button" aria-pressed="false">Show</button>
+        <input id="password" type="password" autocomplete="current-password" placeholder="Password" required>
+        <button type="button" data-peek="password" aria-pressed="false">Show</button>
       </div>
       <button id="loginButton" type="submit">Sign in</button>
+      <button id="forgotLink" class="link" type="button">Forgot password?</button>
       <div id="loginError" class="error" role="alert"></div>
+    </form>
+  </section>
+
+  <section id="forgot" class="login hidden">
+    <h2>Forgot password</h2>
+    <p>A code is sent to the admin email. Enter it here with a new password.</p>
+    <form id="forgotForm">
+      <input id="forgotPhone" type="tel" inputmode="tel" autocomplete="username" placeholder="Mobile number" required>
+      <button type="submit">Send code</button>
+      <button id="backToLogin" class="link" type="button">Back to sign in</button>
+    </form>
+    <form id="resetForm" class="hidden">
+      <div id="forgotNote" class="note"></div>
+      <input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code" required>
+      <div class="field">
+        <input id="newPassword" type="password" autocomplete="new-password" placeholder="New password" required>
+        <button type="button" data-peek="newPassword" aria-pressed="false">Show</button>
+      </div>
+      <button type="submit">Set new password</button>
+      <button id="backToLogin2" class="link" type="button">Back to sign in</button>
+    </form>
+    <div id="forgotError" class="error" role="alert"></div>
+  </section>
+
+  <section id="change" class="login hidden">
+    <h2>Change password</h2>
+    <p>Other signed-in admin sessions are signed out when the password changes.</p>
+    <form id="changeForm">
+      <div class="field">
+        <input id="currentPassword" type="password" autocomplete="current-password" placeholder="Current password" required>
+        <button type="button" data-peek="currentPassword" aria-pressed="false">Show</button>
+      </div>
+      <div class="field">
+        <input id="changedPassword" type="password" autocomplete="new-password" placeholder="New password" required>
+        <button type="button" data-peek="changedPassword" aria-pressed="false">Show</button>
+      </div>
+      <button type="submit">Change password</button>
+      <button id="cancelChange" class="link" type="button">Cancel</button>
+      <div id="changeError" class="error" role="alert"></div>
     </form>
   </section>
 

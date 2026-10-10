@@ -79,11 +79,18 @@ export const envSchema = z.object({
     .min(32, { error: 'PAIRING_SECRET must be at least 32 characters' }),
   PAIRING_TTL_SECONDS: positiveInt('PAIRING_TTL_SECONDS').default(300),
   // --- Admin page ---
-  // Optional: without it the admin page and its API do not exist (404).
+  // Optional: without ADMIN_PHONE and ADMIN_PASSWORD the admin page and its API do not exist (404).
+  // The one mobile number that may sign in to the admin page.
+  ADMIN_PHONE: z.string().max(32, { error: 'ADMIN_PHONE is too long' }).optional(),
+  // The first admin password only: once it is changed on the page, the stored hash replaces it.
   ADMIN_PASSWORD: z
     .string()
     .min(8, { error: 'ADMIN_PASSWORD must be at least 8 characters' })
     .optional(),
+  // Password reset codes go to this address, through Resend. Without both, reset is unavailable.
+  ADMIN_EMAIL: z.email({ error: 'ADMIN_EMAIL must be an email address' }).optional(),
+  RESEND_API_KEY: z.string().min(8, { error: 'RESEND_API_KEY is too short' }).optional(),
+  ADMIN_EMAIL_FROM: z.string().max(200).default('Dekho <onboarding@resend.dev>'),
   DEFAULT_PHONE_REGION: z
     .string()
     .regex(/^[A-Z]{2}$/, { error: 'DEFAULT_PHONE_REGION must be a 2-letter country code' })

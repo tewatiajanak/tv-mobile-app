@@ -8,14 +8,14 @@ import { AdminService } from './admin.service';
 export class AdminGuard implements CanActivate {
   constructor(private readonly admin: AdminService) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<Request>();
     const [scheme, token] = (req.headers.authorization ?? '').split(' ');
     this.admin.requireEnabled();
     if (scheme?.toLowerCase() !== 'bearer' || !token) {
       throw new AppError('UNAUTHENTICATED');
     }
-    this.admin.verify(token);
+    await this.admin.verify(token);
     return true;
   }
 }

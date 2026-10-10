@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { normalizePhone } from '../common/utils/phone';
 import { APP_ENVS, LOG_LEVELS, NODE_ENVS, parseEnv } from './env.schema';
 
 export const APP_CONFIG = Symbol('APP_CONFIG');
@@ -25,8 +26,17 @@ export interface AppConfig {
     defaultPhoneRegion: string;
   };
   pairing: { secret: string; ttlSeconds: number };
-  /** `password` undefined means the admin page is switched off. */
-  admin: { password?: string; tokenTtlSeconds: number };
+  /** Without both `phone` (E.164) and `password` the admin page is switched off. */
+  admin: {
+    phone?: string;
+    /** The first password only; a changed password lives hashed in the database. */
+    password?: string;
+    /** Where password reset codes are sent. Reset needs this and `resendApiKey`. */
+    email?: string;
+    resendApiKey?: string;
+    emailFrom: string;
+    tokenTtlSeconds: number;
+  };
   /** Git SHA when the build provides one, otherwise the package version. */
   version: string;
   /** True only for the OpenAPI export: no database or Redis connection is opened. */
@@ -65,6 +75,12 @@ export function loadConfig(raw: Record<string, string | undefined> = process.env
     throw new ConfigValidationError(result.problems);
   }
   const { env } = result;
+  const adminPhone = env.ADMIN_PHONE
+    ? normalizePhone(env.ADMIN_PHONE, env.DEFAULT_PHONE_REGION)
+    : undefined;
+  if (adminPhone === null) {
+    throw new ConfigValidationError(['ADMIN_PHONE is not a valid mobile number']);
+  }
   return {
     nodeEnv: env.NODE_ENV,
     appEnv: env.APP_ENV,
@@ -85,7 +101,14 @@ export function loadConfig(raw: Record<string, string | undefined> = process.env
       defaultPhoneRegion: env.DEFAULT_PHONE_REGION,
     },
     pairing: { secret: env.PAIRING_SECRET, ttlSeconds: env.PAIRING_TTL_SECONDS },
-    admin: { password: env.ADMIN_PASSWORD, tokenTtlSeconds: 30 * 60 },
+    admin: {
+      phone: adminPhone,
+      password: env.ADMIN_PASSWORD,
+      email: env.ADMIN_EMAIL,
+      resendApiKey: env.RESEND_API_KEY,
+      emailFrom: env.ADMIN_EMAIL_FROM,
+      tokenTtlSeconds: 30 * 60,
+    },
     version: resolveVersion(raw),
     docsOnly: raw.VB_DOCS_ONLY === '1',
   };

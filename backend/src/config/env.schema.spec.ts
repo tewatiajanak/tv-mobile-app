@@ -28,6 +28,7 @@ describe('parseEnv', () => {
         REFRESH_REUSE_GRACE_SECONDS: 20,
         DEFAULT_PHONE_REGION: 'IN',
         PAIRING_TTL_SECONDS: 300,
+        ADMIN_EMAIL_FROM: 'Dekho <onboarding@resend.dev>',
       },
     });
   });
@@ -150,5 +151,13 @@ describe('loadConfig', () => {
         '  - REDIS_URL must be a valid redis:// or rediss:// URL',
       );
     }
+  });
+
+  it('stores the admin number in E.164 and refuses one that is not a mobile number', () => {
+    expect(loadConfig({ ...valid, ADMIN_PHONE: '90000 00001' }).admin.phone).toBe('+919000000001');
+    expect(loadConfig(valid).admin.phone).toBeUndefined();
+    expect(() => loadConfig({ ...valid, ADMIN_PHONE: '12345' })).toThrow(
+      'ADMIN_PHONE is not a valid mobile number',
+    );
   });
 });

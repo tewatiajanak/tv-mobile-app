@@ -120,10 +120,14 @@ row closes it and returns to the field. Reuse it for every TV text field (search
   **They have not been installed or run on a device yet.**
   They are also published as GitHub release `v0.1.0` (direct download links).
 - **Admin users page** (owner's request, ahead of Phase 13): `/admin` on the backend lists users
-  with name and full mobile number, with search. It is protected by `ADMIN_PASSWORD` (its own
-  password, not a user account, because user passwords may be one character); unset means the
-  page and `/api/v1/admin/*` answer 404. Code: `backend/src/modules/admin`. This is the only
-  place a full phone number leaves the API.
+  with name and full mobile number, with search. Only the owner signs in, with `ADMIN_PHONE` +
+  a password. `ADMIN_PASSWORD` is the first password only: once changed on the page ("Change
+  password") the scrypt hash in `admin_credentials` replaces it. "Forgot password" emails a
+  6-digit code to `ADMIN_EMAIL` through Resend (`RESEND_API_KEY`); the owner chose email over
+  SMS on 2026-10-10. Without `ADMIN_PHONE` and `ADMIN_PASSWORD` the page and `/api/v1/admin/*`
+  answer 404. The owner's number lives only in env values (the repo is public). Nothing in the
+  apps links to it. Code: `backend/src/modules/admin`. This is the only place a full phone
+  number leaves the API.
 - In `prod`, plain-http is allowed for everything except our own backend, because saved video
   links are often http. Revisit in the security phase.
 - The owner wants the app finished as fast as possible: prefer the shortest path to the MVP
